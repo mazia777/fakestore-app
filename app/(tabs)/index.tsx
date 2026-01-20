@@ -8,8 +8,10 @@ import {
   Image,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -23,6 +25,10 @@ export default function ProductsScreen() {
 
   const [state, setState] = useState<UiState>({ status: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
+
+  // NEW: search + filter
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<string>('All');
 
   const load = useCallback(async () => {
     try {
@@ -40,6 +46,27 @@ export default function ProductsScreen() {
 
   const products = useMemo(() => (state.status === 'success' ? state.data : []), [state]);
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of products) {
+      if (p.category) set.add(p.category);
+    }
+    return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [products]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return products.filter((p) => {
+      const matchesCategory = category === 'All' ? true : p.category === category;
+      const matchesQuery =
+        q.length === 0
+          ? true
+          : (p.title ?? '').toLowerCase().includes(q) ||
+            (p.description ?? '').toLowerCase().includes(q);
+      return matchesCategory && matchesQuery;
+    });
+  }, [products, query, category]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -48,6 +75,11 @@ export default function ProductsScreen() {
       setRefreshing(false);
     }
   }, [load]);
+
+  const clearFilters = useCallback(() => {
+    setQuery('');
+    setCategory('All');
+  }, []);
 
   const renderItem = ({ item }: { item: Product }) => (
     <Pressable
@@ -88,13 +120,66 @@ export default function ProductsScreen() {
 
   return (
     <View style={styles.screen}>
+      {/* Search */}
+      <View style={styles.searchRow}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Rechercher un produit…"
+          style={styles.searchInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+        <Pressable style={styles.clearBtn} onPress={clearFilters}>
+          <Text style={styles.clearText}>Reset</Text>
+        </Pressable>
+      </View>
+
+      {/* Category chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsRow}
+      >
+        {categories.map((c) => {
+          const active = c === category;
+          return (
+            <Pressable
+              key={c}
+              onPress={() => setCategory(c)}
+              style={[styles.chip, active && styles.chipActive]}
+            >
+              <Text
+                style={[styles.chipText, active && styles.chipTextActive]}
+                numberOfLines={1}
+              >
+                {c}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* List */}
       <FlatList
-        data={products}
+        data={filtered}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>Aucun résultat</Text>
+            <Text style={styles.emptyText}>
+              Essaie de changer la catégorie ou la recherche.
+            </Text>
+            <Pressable style={styles.retryBtn} onPress={clearFilters}>
+              <Text style={styles.retryText}>Réinitialiser</Text>
+            </Pressable>
+          </View>
+        }
       />
     </View>
   );
@@ -102,7 +187,55 @@ export default function ProductsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  listContainer: { padding: 12 },
+
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'white',
+  },
+  clearBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#ddd',
+    backgroundColor: 'white',
+  },
+  clearText: { fontWeight: '700' },
+
+  chipsRow: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#ddd',
+    backgroundColor: 'white',
+  },
+  chipActive: {
+    backgroundColor: '#111',
+    borderColor: '#111',
+  },
+  chipText: { fontSize: 12, fontWeight: '700' },
+  chipTextActive: { color: 'white' },
+
+  listContainer: { paddingHorizontal: 12, paddingBottom: 12 },
   sep: { height: 10 },
 
   card: {
@@ -139,4 +272,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
   },
   retryText: { color: 'white', fontWeight: '700' },
+
+  empty: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 10,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: '800' },
+  emptyText: { opacity: 0.8, textAlign: 'center' },
 });
