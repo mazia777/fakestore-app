@@ -1,11 +1,11 @@
 import { getProducts } from '@/src/api/fakestore';
+import { ProductCard } from '@/src/components/ProductCard';
 import type { Product } from '@/src/types/fakestore';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -104,19 +104,7 @@ export default function ProductsScreen() {
   }, []);
 
   const renderItem = ({ item }: { item: Product }) => (
-    <Pressable
-      onPress={() => router.push(`/product/${item.id}`)}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-    >
-      <Image source={{ uri: item.image }} style={styles.image} resizeMode="contain" />
-      <View style={styles.content}>
-        <Text numberOfLines={2} style={styles.title}>
-          {item.title}
-        </Text>
-        <Text style={styles.price}>${Number(item.price).toFixed(2)}</Text>
-        {!!item.category && <Text style={styles.meta}>{item.category}</Text>}
-      </View>
-    </Pressable>
+    <ProductCard product={item} onPress={() => router.push(`/product/${item.id}`)} />
   );
 
   if (state.status === 'loading') {
@@ -142,7 +130,6 @@ export default function ProductsScreen() {
 
   const Header = (
     <View style={styles.header}>
-      {/* Search */}
       <View style={styles.searchRow}>
         <TextInput
           value={query}
@@ -158,7 +145,6 @@ export default function ProductsScreen() {
         </Pressable>
       </View>
 
-      {/* Categories (wrap => pas de scrollbar web) */}
       <View style={styles.chipsWrap}>
         {categories.map((c) => {
           const active = c === category;
@@ -176,7 +162,6 @@ export default function ProductsScreen() {
         })}
       </View>
 
-      {/* Count + sort (wrap) */}
       <View style={styles.topBar}>
         <Text style={styles.countText}>Résultats : {filteredAndSorted.length}</Text>
 
@@ -319,22 +304,6 @@ const styles = StyleSheet.create({
 
   listContainer: { paddingHorizontal: 12, paddingBottom: 12 },
   sep: { height: 10 },
-
-  card: {
-    flexDirection: 'row',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
-    backgroundColor: 'white',
-  },
-  pressed: { opacity: 0.85 },
-
-  image: { width: 70, height: 70, marginRight: 12 },
-  content: { flex: 1, gap: 6 },
-  title: { fontSize: 14, fontWeight: '600' },
-  price: { fontSize: 14, fontWeight: '700' },
-  meta: { fontSize: 12, opacity: 0.7 },
 
   center: {
     flex: 1,
