@@ -1,9 +1,9 @@
-import { getProducts } from '@src/api/fakestore';
-import type { Product } from '@src/types/fakestore';
+import { getProducts } from '@/src/api/fakestore';
+import type { Product } from '@/src/types/fakestore';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -19,6 +19,8 @@ type UiState =
   | { status: 'success'; data: Product[] };
 
 export default function ProductsScreen() {
+  const router = useRouter();
+
   const [state, setState] = useState<UiState>({ status: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -49,7 +51,7 @@ export default function ProductsScreen() {
 
   const renderItem = ({ item }: { item: Product }) => (
     <Pressable
-      onPress={() => Alert.alert('Produit', item.title)}
+      onPress={() => router.push(`/product/${item.id}`)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <Image source={{ uri: item.image }} style={styles.image} resizeMode="contain" />

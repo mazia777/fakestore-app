@@ -1,4 +1,4 @@
-import type { Product } from '@src/types/fakestore';
+import type { Product } from '@/src/types/fakestore';
 
 const BASE_URL = 'https://fakestoreapi.com';
 
@@ -22,4 +22,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getProducts() {
   return request<Product[]>('/products');
+}
+
+export function getProductById(id: number) {
+  return request<Product>(`/products/${id}`);
 }

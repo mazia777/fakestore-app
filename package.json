@@ -9,8 +9,8 @@
     "web": "expo start --web --port 8083",
     "lint": "eslint .",
     "format": "prettier . --write",
+    "dev": "expo start --web --port 8085",
     "format:check": "prettier . --check"
-    
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
