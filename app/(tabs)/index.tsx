@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 type UiState =
@@ -23,6 +24,7 @@ type SortKey = 'none' | 'price_asc' | 'price_desc' | 'title_asc' | 'title_desc';
 
 export default function ProductsScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
   const [state, setState] = useState<UiState>({ status: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
@@ -30,6 +32,13 @@ export default function ProductsScreen() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string>('All');
   const [sort, setSort] = useState<SortKey>('none');
+
+  const numColumns = useMemo(() => {
+    if (width >= 1200) return 4;
+    if (width >= 900) return 3;
+    if (width >= 650) return 2;
+    return 1;
+  }, [width]);
 
   const load = useCallback(async () => {
     try {
@@ -58,11 +67,11 @@ export default function ProductsScreen() {
 
     const base = products.filter((p) => {
       const matchesCategory = category === 'All' ? true : p.category === category;
-      const matchesQuery =
-        q.length === 0
-          ? true
-          : (p.title ?? '').toLowerCase().includes(q) ||
-            (p.description ?? '').toLowerCase().includes(q);
+
+      const hayTitle = (p.title ?? '').toLowerCase();
+      const hayDesc = (p.description ?? '').toLowerCase();
+      const matchesQuery = q.length === 0 ? true : hayTitle.includes(q) || hayDesc.includes(q);
+
       return matchesCategory && matchesQuery;
     });
 
@@ -104,7 +113,9 @@ export default function ProductsScreen() {
   }, []);
 
   const renderItem = ({ item }: { item: Product }) => (
-    <ProductCard product={item} onPress={() => router.push(`/product/${item.id}`)} />
+    <View style={styles.gridItem}>
+      <ProductCard product={item} onPress={() => router.push(`/product/${item.id}`)} />
+    </View>
   );
 
   if (state.status === 'loading') {
@@ -134,12 +145,13 @@ export default function ProductsScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Rechercher un produit…"
+          placeholder="Que recherchez-vous ?"
           style={styles.searchInput}
           autoCapitalize="none"
           autoCorrect={false}
           clearButtonMode="while-editing"
         />
+
         <Pressable style={styles.clearBtn} onPress={clearFilters}>
           <Text style={styles.clearText}>Reset</Text>
         </Pressable>
@@ -217,16 +229,18 @@ export default function ProductsScreen() {
     <View style={styles.screen}>
       <FlatList
         data={filteredAndSorted}
+        key={numColumns}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? styles.gridRow : undefined}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ItemSeparatorComponent={() => <View style={styles.sep} />}
         ListHeaderComponent={Header}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>Aucun résultat</Text>
-            <Text style={styles.emptyText}>Essaie de changer la catégorie ou la recherche.</Text>
+            <Text style={styles.emptyText}>Change la catégorie ou la recherche.</Text>
             <Pressable style={styles.retryBtn} onPress={clearFilters}>
               <Text style={styles.retryText}>Réinitialiser</Text>
             </Pressable>
@@ -238,7 +252,7 @@ export default function ProductsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
+  screen: { flex: 1, backgroundColor: '#f3f4f6' },
 
   header: { paddingTop: 12 },
 
@@ -246,30 +260,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
   },
   searchInput: {
     flex: 1,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#e5e7eb',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     backgroundColor: 'white',
   },
   clearBtn: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
+    borderColor: '#e5e7eb',
     backgroundColor: 'white',
   },
-  clearText: { fontWeight: '700' },
+  clearText: { fontWeight: '800' },
 
   chipsWrap: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingBottom: 10,
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -280,30 +294,36 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
+    borderColor: '#e5e7eb',
     backgroundColor: 'white',
   },
   chipActive: { backgroundColor: '#111', borderColor: '#111' },
-  chipText: { fontSize: 12, fontWeight: '700' },
+  chipText: { fontSize: 12, fontWeight: '800' },
   chipTextActive: { color: 'white' },
 
-  topBar: { paddingHorizontal: 12, paddingBottom: 10, gap: 10 },
-  countText: { fontWeight: '800' },
+  topBar: { paddingHorizontal: 14, paddingBottom: 12, gap: 10 },
+  countText: { fontWeight: '900' },
   sortWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   sortBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
+    borderColor: '#e5e7eb',
     backgroundColor: 'white',
   },
   sortBtnActive: { backgroundColor: '#111', borderColor: '#111' },
-  sortText: { fontSize: 12, fontWeight: '800' },
+  sortText: { fontSize: 12, fontWeight: '900' },
   sortTextActive: { color: 'white' },
 
-  listContainer: { paddingHorizontal: 12, paddingBottom: 12 },
-  sep: { height: 10 },
+  listContainer: {
+    paddingHorizontal: 14,
+    paddingBottom: 18,
+    gap: 14,
+  },
+
+  gridRow: { gap: 14, marginBottom: 14 },
+  gridItem: { flex: 1, minWidth: 0 },
 
   center: {
     flex: 1,
@@ -313,8 +333,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   centerText: { opacity: 0.8, textAlign: 'center' },
-  errorTitle: { fontSize: 16, fontWeight: '700' },
+  errorTitle: { fontSize: 16, fontWeight: '800' },
   errorMsg: { textAlign: 'center', opacity: 0.8 },
+
   retryBtn: {
     marginTop: 8,
     paddingHorizontal: 14,
@@ -322,9 +343,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#111',
   },
-  retryText: { color: 'white', fontWeight: '700' },
+  retryText: { color: 'white', fontWeight: '900' },
 
   empty: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 16, gap: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: '800' },
+  emptyTitle: { fontSize: 16, fontWeight: '900' },
   emptyText: { opacity: 0.8, textAlign: 'center' },
 });
