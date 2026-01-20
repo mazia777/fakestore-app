@@ -8,7 +8,6 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,15 +19,17 @@ type UiState =
   | { status: 'error'; message: string }
   | { status: 'success'; data: Product[] };
 
+type SortKey = 'none' | 'price_asc' | 'price_desc' | 'title_asc' | 'title_desc';
+
 export default function ProductsScreen() {
   const router = useRouter();
 
   const [state, setState] = useState<UiState>({ status: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
 
-  // NEW: search + filter
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string>('All');
+  const [sort, setSort] = useState<SortKey>('none');
 
   const load = useCallback(async () => {
     try {
@@ -48,15 +49,14 @@ export default function ProductsScreen() {
 
   const categories = useMemo(() => {
     const set = new Set<string>();
-    for (const p of products) {
-      if (p.category) set.add(p.category);
-    }
+    for (const p of products) if (p.category) set.add(p.category);
     return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [products]);
 
-  const filtered = useMemo(() => {
+  const filteredAndSorted = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return products.filter((p) => {
+
+    const base = products.filter((p) => {
       const matchesCategory = category === 'All' ? true : p.category === category;
       const matchesQuery =
         q.length === 0
@@ -65,7 +65,28 @@ export default function ProductsScreen() {
             (p.description ?? '').toLowerCase().includes(q);
       return matchesCategory && matchesQuery;
     });
-  }, [products, query, category]);
+
+    const arr = [...base];
+
+    switch (sort) {
+      case 'price_asc':
+        arr.sort((a, b) => Number(a.price) - Number(b.price));
+        break;
+      case 'price_desc':
+        arr.sort((a, b) => Number(b.price) - Number(a.price));
+        break;
+      case 'title_asc':
+        arr.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''));
+        break;
+      case 'title_desc':
+        arr.sort((a, b) => (b.title ?? '').localeCompare(a.title ?? ''));
+        break;
+      default:
+        break;
+    }
+
+    return arr;
+  }, [products, query, category, sort]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -79,6 +100,7 @@ export default function ProductsScreen() {
   const clearFilters = useCallback(() => {
     setQuery('');
     setCategory('All');
+    setSort('none');
   }, []);
 
   const renderItem = ({ item }: { item: Product }) => (
@@ -118,8 +140,8 @@ export default function ProductsScreen() {
     );
   }
 
-  return (
-    <View style={styles.screen}>
+  const Header = (
+    <View style={styles.header}>
       {/* Search */}
       <View style={styles.searchRow}>
         <TextInput
@@ -136,12 +158,8 @@ export default function ProductsScreen() {
         </Pressable>
       </View>
 
-      {/* Category chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}
-      >
+      {/* Categories (wrap => pas de scrollbar web) */}
+      <View style={styles.chipsWrap}>
         {categories.map((c) => {
           const active = c === category;
           return (
@@ -150,31 +168,80 @@ export default function ProductsScreen() {
               onPress={() => setCategory(c)}
               style={[styles.chip, active && styles.chipActive]}
             >
-              <Text
-                style={[styles.chipText, active && styles.chipTextActive]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
                 {c}
               </Text>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
-      {/* List */}
+      {/* Count + sort (wrap) */}
+      <View style={styles.topBar}>
+        <Text style={styles.countText}>Résultats : {filteredAndSorted.length}</Text>
+
+        <View style={styles.sortWrap}>
+          <Pressable
+            onPress={() => setSort('none')}
+            style={[styles.sortBtn, sort === 'none' && styles.sortBtnActive]}
+          >
+            <Text style={[styles.sortText, sort === 'none' && styles.sortTextActive]}>
+              Default
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setSort(sort === 'price_asc' ? 'price_desc' : 'price_asc')}
+            style={[
+              styles.sortBtn,
+              (sort === 'price_asc' || sort === 'price_desc') && styles.sortBtnActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.sortText,
+                (sort === 'price_asc' || sort === 'price_desc') && styles.sortTextActive,
+              ]}
+            >
+              Prix {sort === 'price_asc' ? '↑' : sort === 'price_desc' ? '↓' : ''}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setSort(sort === 'title_asc' ? 'title_desc' : 'title_asc')}
+            style={[
+              styles.sortBtn,
+              (sort === 'title_asc' || sort === 'title_desc') && styles.sortBtnActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.sortText,
+                (sort === 'title_asc' || sort === 'title_desc') && styles.sortTextActive,
+              ]}
+            >
+              A-Z {sort === 'title_asc' ? '↑' : sort === 'title_desc' ? '↓' : ''}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.screen}>
       <FlatList
-        data={filtered}
+        data={filteredAndSorted}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
+        ListHeaderComponent={Header}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>Aucun résultat</Text>
-            <Text style={styles.emptyText}>
-              Essaie de changer la catégorie ou la recherche.
-            </Text>
+            <Text style={styles.emptyText}>Essaie de changer la catégorie ou la recherche.</Text>
             <Pressable style={styles.retryBtn} onPress={clearFilters}>
               <Text style={styles.retryText}>Réinitialiser</Text>
             </Pressable>
@@ -188,12 +255,13 @@ export default function ProductsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
 
+  header: { paddingTop: 12 },
+
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 12,
-    paddingTop: 12,
     paddingBottom: 8,
   },
   searchInput: {
@@ -215,9 +283,11 @@ const styles = StyleSheet.create({
   },
   clearText: { fontWeight: '700' },
 
-  chipsRow: {
+  chipsWrap: {
     paddingHorizontal: 12,
     paddingBottom: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   chip: {
@@ -228,12 +298,24 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     backgroundColor: 'white',
   },
-  chipActive: {
-    backgroundColor: '#111',
-    borderColor: '#111',
-  },
+  chipActive: { backgroundColor: '#111', borderColor: '#111' },
   chipText: { fontSize: 12, fontWeight: '700' },
   chipTextActive: { color: 'white' },
+
+  topBar: { paddingHorizontal: 12, paddingBottom: 10, gap: 10 },
+  countText: { fontWeight: '800' },
+  sortWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  sortBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#ddd',
+    backgroundColor: 'white',
+  },
+  sortBtnActive: { backgroundColor: '#111', borderColor: '#111' },
+  sortText: { fontSize: 12, fontWeight: '800' },
+  sortTextActive: { color: 'white' },
 
   listContainer: { paddingHorizontal: 12, paddingBottom: 12 },
   sep: { height: 10 },
@@ -261,7 +343,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
-  centerText: { opacity: 0.8 },
+  centerText: { opacity: 0.8, textAlign: 'center' },
   errorTitle: { fontSize: 16, fontWeight: '700' },
   errorMsg: { textAlign: 'center', opacity: 0.8 },
   retryBtn: {
@@ -273,13 +355,7 @@ const styles = StyleSheet.create({
   },
   retryText: { color: 'white', fontWeight: '700' },
 
-  empty: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    gap: 10,
-  },
+  empty: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 16, gap: 10 },
   emptyTitle: { fontSize: 16, fontWeight: '800' },
   emptyText: { opacity: 0.8, textAlign: 'center' },
 });
